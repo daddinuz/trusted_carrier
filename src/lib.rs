@@ -61,7 +61,7 @@ where
 #[macro_export]
 macro_rules! badge {
     () => {
-        Badge::new(|_| $crate::InvariantLifetime::new())
+        $crate::Badge::new(|_| $crate::InvariantLifetime::new())
     };
 }
 
