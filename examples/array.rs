@@ -52,11 +52,11 @@ where
     }
 
     pub fn get(&self, index: &Index<'id, Id>) -> &T {
-        unsafe { self.data.get_unchecked(index.data()) }
+        unsafe { self.data.get_unchecked(index.value()) }
     }
 
     pub fn get_mut(&mut self, index: &Index<'id, Id>) -> &mut T {
-        unsafe { self.data.get_unchecked_mut(index.data()) }
+        unsafe { self.data.get_unchecked_mut(index.value()) }
     }
 
     pub fn len(&self) -> usize {

@@ -1,4 +1,4 @@
-use std::{cell::Cell, marker::PhantomData, ops::Deref};
+use std::{cell::Cell, marker::PhantomData};
 
 mod seal {
     pub trait Sealed {}
@@ -94,7 +94,7 @@ pub struct Trusted<'id, Id, T>
 where
     Id: Identity,
 {
-    data: T,
+    value: T,
     #[allow(dead_code)]
     grant: Grant<'id, Id>,
 }
@@ -103,19 +103,8 @@ impl<'id, Id, T> Trusted<'id, Id, T>
 where
     Id: Identity,
 {
-    fn new(grant: Grant<'id, Id>, data: T) -> Self {
-        Self { data, grant }
-    }
-}
-
-impl<'id, Id, T> Deref for Trusted<'id, Id, T>
-where
-    Id: Identity,
-{
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        &self.data
+    fn new(grant: Grant<'id, Id>, value: T) -> Self {
+        Self { value, grant }
     }
 }
 
@@ -124,8 +113,17 @@ where
     T: Copy,
     Id: Identity,
 {
-    pub fn data(&self) -> T {
-        self.data
+    pub fn value(&self) -> T {
+        self.value
+    }
+}
+
+impl<'id, Id, T> AsRef<T> for Trusted<'id, Id, T>
+where
+    Id: Identity,
+{
+    fn as_ref(&self) -> &T {
+        &self.value
     }
 }
 
