@@ -1,13 +1,13 @@
 # Trusted Carrier
 
-Type-level unique "tags" used to mark types, thus providing a "chain of trust" 
+Type-level unique "tags" used to mark types, thus providing a "chain of trust"  
 for things like *safe* **unchecked** indexing, capability management and stuff like that.
 
 ### Disclaimer
 
-This library is highly experimental and is intended for research purposes only.
+This library is highly experimental and is intended for research purposes only.  
 Soundness has not been proven, so I do NOT recommend using this library
-for nothing more than research
+for nothing more than research.
 
 ### References/Prior Art
 
