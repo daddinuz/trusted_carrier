@@ -1,4 +1,4 @@
-use std::{cell::Cell, marker::PhantomData};
+use std::{cell::Cell, marker::PhantomData, ops::Deref};
 
 mod seal {
     pub trait Sealed {}
@@ -27,7 +27,8 @@ impl<T> seal::Sealed for T where T: for<'a> FnOnce(InvariantLifetime<'a>) -> Inv
 
 impl<T> Identity for T where T: for<'a> FnOnce(InvariantLifetime<'a>) -> InvariantLifetime<'a> {}
 
-// Auth instances must be neither default nor trivially constructible
+// To prevent forgery, Auth instances must be neither default nor trivially constructible.
+// An Identity instance must be consumed in order to construct a new Auth.
 pub struct Auth<'id, Id>(PhantomData<Cell<&'id mut Id>>)
 where
     Id: Identity;
@@ -46,12 +47,8 @@ impl<'id, Id> Auth<'id, Id>
 where
     Id: Identity,
 {
-    pub fn grant_once(&self) -> OnceToken<'id, Id> {
-        OnceToken::new(self)
-    }
-
-    pub fn grant_shared(&self) -> SharedToken<'id, Id> {
-        SharedToken::new(self)
+    pub fn grant(&self) -> Grant<'id, Id> {
+        Grant::new(self)
     }
 }
 
@@ -69,38 +66,74 @@ macro_rules! auth {
     };
 }
 
-pub struct OnceToken<'id, Id>(PhantomData<Auth<'id, Id>>)
+pub struct Grant<'id, Id>(PhantomData<Auth<'id, Id>>)
 where
     Id: Identity;
 
-impl<'id, Id> OnceToken<'id, Id>
+impl<'id, Id> Grant<'id, Id>
 where
     Id: Identity,
 {
     fn new(_: &Auth<'id, Id>) -> Self {
         Self(PhantomData)
     }
+
+    pub fn to<T>(self, data: T) -> Trusted<'id, Id, T> {
+        Trusted::new(self, data)
+    }
 }
 
-impl<'id, Id> Drop for OnceToken<'id, Id>
+impl<'id, Id> Drop for Grant<'id, Id>
 where
     Id: Identity,
 {
     fn drop(&mut self) {}
 }
 
-#[derive(Copy, Clone)]
-pub struct SharedToken<'id, Id>(PhantomData<Auth<'id, Id>>)
-where
-    Id: Identity;
-
-impl<'id, Id> SharedToken<'id, Id>
+pub struct Trusted<'id, Id, T>
 where
     Id: Identity,
 {
-    fn new(_: &Auth<'id, Id>) -> Self {
-        Self(PhantomData)
+    data: T,
+    #[allow(dead_code)]
+    grant: Grant<'id, Id>,
+}
+
+impl<'id, Id, T> Trusted<'id, Id, T>
+where
+    Id: Identity,
+{
+    fn new(grant: Grant<'id, Id>, data: T) -> Self {
+        Self { data, grant }
     }
+}
+
+impl<'id, Id, T> Deref for Trusted<'id, Id, T>
+where
+    Id: Identity,
+{
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.data
+    }
+}
+
+impl<'id, Id, T> Trusted<'id, Id, T>
+where
+    T: Copy,
+    Id: Identity,
+{
+    pub fn data(&self) -> T {
+        self.data
+    }
+}
+
+impl<'id, Id, T> Drop for Trusted<'id, Id, T>
+where
+    Id: Identity,
+{
+    fn drop(&mut self) {}
 }
 
 #[cfg(test)]
@@ -114,7 +147,11 @@ mod tests {
 
         let auth = auth!();
         assert_eq!(0, mem::size_of_val(&auth));
-        assert_eq!(0, mem::size_of_val(&auth.grant_once()));
-        assert_eq!(0, mem::size_of_val(&auth.grant_shared()));
+
+        let grant = auth.grant();
+        assert_eq!(0, mem::size_of_val(&grant));
+
+        let trusted = grant.to(());
+        assert_eq!(0, mem::size_of_val(&trusted));
     }
 }

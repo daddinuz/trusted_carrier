@@ -1,5 +1,5 @@
 use std::collections::VecDeque;
-use trusted_carrier::{Auth, Identity, OnceToken};
+use trusted_carrier::{Auth, Grant, Identity};
 
 fn main() {
     let mut q = Queue::from(trusted_carrier::auth!());
@@ -31,12 +31,12 @@ impl<'id, Id: Identity, T> From<Auth<'id, Id>> for Queue<'id, Id, T> {
 }
 
 impl<'id, Id: Identity, T> Queue<'id, Id, T> {
-    pub fn pop(&mut self, _: OnceToken<'id, Id>) -> T {
+    pub fn pop(&mut self, _: Grant<'id, Id>) -> T {
         self.data.pop_front().unwrap()
     }
 
-    pub fn put(&mut self, value: T) -> OnceToken<'id, Id> {
+    pub fn put(&mut self, value: T) -> Grant<'id, Id> {
         self.data.push_back(value);
-        self.auth.grant_once()
+        self.auth.grant()
     }
 }

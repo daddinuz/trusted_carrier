@@ -1,17 +1,17 @@
-use trusted_carrier::{Auth, Identity, SharedToken};
+use trusted_carrier::{Auth, Identity, Trusted};
 
 fn main() {
     let mut arr = Array::new(trusted_carrier::auth!(), [0; 3]);
     let one = arr.index(1).unwrap();
     let two = arr.index(2).unwrap();
 
-    let v1 = arr.get_mut(one);
+    let v1 = arr.get_mut(&one);
     *v1 = 1;
 
-    let v2 = arr.get_mut(two);
+    let v2 = arr.get_mut(&two);
     *v2 = 2;
 
-    println!("v1 = {} , v2 = {}", arr.get(one), arr.get(two));
+    println!("v1 = {} , v2 = {}", arr.get(&one), arr.get(&two));
 }
 
 pub struct Array<'id, Id, T, const N: usize>
@@ -48,15 +48,15 @@ where
             return None;
         }
 
-        Some(Index::new(self.auth.grant_shared(), index))
+        Some(self.auth.grant().to(index))
     }
 
-    pub fn get(&self, index: Index<'id, Id>) -> &T {
-        unsafe { self.data.get_unchecked(index.index) }
+    pub fn get(&self, index: &Index<'id, Id>) -> &T {
+        unsafe { self.data.get_unchecked(index.data()) }
     }
 
-    pub fn get_mut(&mut self, index: Index<'id, Id>) -> &mut T {
-        unsafe { self.data.get_unchecked_mut(index.index) }
+    pub fn get_mut(&mut self, index: &Index<'id, Id>) -> &mut T {
+        unsafe { self.data.get_unchecked_mut(index.data()) }
     }
 
     pub fn len(&self) -> usize {
@@ -68,21 +68,4 @@ where
     }
 }
 
-#[derive(Copy, Clone)]
-pub struct Index<'id, Id>
-where
-    Id: Identity,
-{
-    index: usize,
-    #[allow(dead_code)]
-    token: SharedToken<'id, Id>,
-}
-
-impl<'id, Id> Index<'id, Id>
-where
-    Id: Identity,
-{
-    fn new(token: SharedToken<'id, Id>, index: usize) -> Self {
-        Self { index, token }
-    }
-}
+pub type Index<'id, Id> = Trusted<'id, Id, usize>;

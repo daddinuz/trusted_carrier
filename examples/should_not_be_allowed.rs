@@ -6,6 +6,6 @@ fn main() {
     // (anyway auth is unique and it has been dropped so the token is now useless)
     let _token = {
         let auth = trusted_carrier::auth!();
-        auth.grant_once()
+        auth.grant()
     };
 }
