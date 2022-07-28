@@ -1,8 +1,8 @@
 use std::collections::VecDeque;
-use trusted_carrier::{Badge, Proxy, Unique};
+use trusted_carrier::{Auth, Identity, OnceToken};
 
 fn main() {
-    let mut q = Queue::from(trusted_carrier::badge!());
+    let mut q = Queue::from(trusted_carrier::auth!());
 
     #[allow(clippy::needless_collect)]
     let tokens: Vec<_> = (0..10).map(|n| q.put(n)).collect();
@@ -12,29 +12,31 @@ fn main() {
         .for_each(|t| println!("{}", q.pop(t)))
 }
 
-pub struct Queue<'id, Id: Unique, T> {
-    queue: VecDeque<T>,
-
+pub struct Queue<'id, Id, T>
+where
+    Id: Identity,
+{
+    data: VecDeque<T>,
     #[allow(dead_code)]
-    badge: Badge<'id, Id>,
+    auth: Auth<'id, Id>,
 }
 
-impl<'id, Id: Unique, T> From<Badge<'id, Id>> for Queue<'id, Id, T> {
-    fn from(badge: Badge<'id, Id>) -> Self {
+impl<'id, Id: Identity, T> From<Auth<'id, Id>> for Queue<'id, Id, T> {
+    fn from(auth: Auth<'id, Id>) -> Self {
         Self {
-            queue: VecDeque::new(),
-            badge,
+            data: VecDeque::new(),
+            auth,
         }
     }
 }
 
-impl<'id, Id: Unique, T> Queue<'id, Id, T> {
-    pub fn pop(&mut self, _: Proxy<'id, Id>) -> T {
-        self.queue.pop_front().unwrap()
+impl<'id, Id: Identity, T> Queue<'id, Id, T> {
+    pub fn pop(&mut self, _: OnceToken<'id, Id>) -> T {
+        self.data.pop_front().unwrap()
     }
 
-    pub fn put(&mut self, value: T) -> Proxy<'id, Id> {
-        self.queue.push_back(value);
-        self.badge.proxy()
+    pub fn put(&mut self, value: T) -> OnceToken<'id, Id> {
+        self.data.push_back(value);
+        self.auth.grant_once()
     }
 }

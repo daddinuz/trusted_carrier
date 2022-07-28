@@ -15,6 +15,7 @@ for nothing more than research.
 - [generativity](https://crates.io/crates/generativity)
 - [unique-type](https://crates.io/crates/unique-type)
 - [indexing](https://crates.io/crates/indexing)
+- [GhostCell](https://crates.io/crates/ghost-cell)
 
 - [variance](https://doc.rust-lang.org/nomicon/subtyping.html#variance)
 - [sealed traits](https://internals.rust-lang.org/t/pre-rfc-sealed-traits/3108)

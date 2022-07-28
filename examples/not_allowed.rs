@@ -1,40 +1,47 @@
 #[allow(unused)]
-use trusted_carrier::{Badge, Unique};
+use trusted_carrier::*;
 
 fn main() {
     /*
-    // Badges must be unique
-    fn assert_unique<'id, Id: Unique>(_: Badge<'id, Id>, _: Badge<'id, Id>) {}
+    // Auths must be unique
+    fn assert_unique<'id, Id: Identity>(_: Auth<'id, Id>, _: Auth<'id, Id>) {}
 
-    let id1 = trusted_carrier::badge!();
-    let id2 = trusted_carrier::badge!();
-    assert_unique(id1, id2);
+    let auth1 = trusted_carrier::auth!();
+    let auth2 = trusted_carrier::auth!();
+    assert_unique(auth1, auth2);
     */
 
     /*
-    // Badges must be constructed from Unique seeds
-    use trusted_carrier::InvariantLifetime;
+    // Auths must be constructed from unique identities
+    fn assert_unique<'id, Id: Identity>(_: Auth<'id, Id>, _: Auth<'id, Id>) {}
 
-    fn assert_unique<'id, Id: Unique>(_: Badge<'id, Id>, _: Badge<'id, Id>) {}
-
-    let f = |_| InvariantLifetime::new();
-    let id1 = Badge::new(f);
-    let id2 = Badge::new(f);
-    assert_unique(id1, id2);
+    let id = |_| InvariantLifetime::new();
+    let auth1 = Auth::new(id);
+    let auth2 = Auth::new(id);
+    assert_unique(auth1, auth2);
     */
 
     /*
-    // Unique cannot be unified
-    use trusted_carrier::InvariantLifetime;
+    // Identity cannot be unified
+    fn assert_unique<Id: Identity>(_: Id, _: Id) {}
 
-    fn assert_unique<U: Unique>(_: U, _: U) {}
-
-    fn unify() -> impl Unique {
+    fn forge_unified() -> impl Identity {
         |_| InvariantLifetime::new()
     }
 
-    let id1 = unify();
-    let id2 = unify();
+    let id1 = forge_unified();
+    let id2 = forge_unified();
     assert_unique(id1, id2);
+    */
+
+    /*
+    // Auth cannot be forged from tokens
+    let auth = trusted_carrier::auth!();
+    let token = auth.grant_once();
+    let forged = forge(token);
+
+    fn forge<'id, Id: Identity>(token: OnceToken<'id, Id>) -> Auth<'id, Id> {
+        Auth::new(|_| InvariantLifetime::new())
+    }
     */
 }
