@@ -1,4 +1,4 @@
-use std::{cell::Cell, marker::PhantomData};
+use std::{cell::Cell, marker::PhantomData, ops::Deref};
 
 mod seal {
     pub trait Sealed {}
@@ -123,6 +123,17 @@ where
     Id: Identity,
 {
     fn as_ref(&self) -> &T {
+        &self.value
+    }
+}
+
+impl<'id, Id, T> Deref for Trusted<'id, Id, T>
+where
+    Id: Identity,
+{
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
         &self.value
     }
 }
