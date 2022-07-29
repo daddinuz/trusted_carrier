@@ -35,8 +35,7 @@ where
 
 impl<'id, Id> Auth<'id, Id>
 where
-    Id: for<'a> FnOnce(InvariantLifetime<'a>) -> InvariantLifetime<'a>,
-    // Id: Identity, /* DO NOT WORK, DON'T KNOW WHY */
+    Id: Identity,
 {
     pub fn new(_: Id) -> Self {
         Self(PhantomData)
@@ -61,9 +60,16 @@ where
 
 #[macro_export]
 macro_rules! auth {
-    () => {
-        $crate::Auth::new(|_| $crate::InvariantLifetime::new())
-    };
+    () => {{
+        fn cast<Id>(id: Id) -> impl $crate::Identity
+        where
+            Id: FnOnce($crate::InvariantLifetime) -> $crate::InvariantLifetime,
+        {
+            id
+        }
+
+        $crate::Auth::new(cast(|_| $crate::InvariantLifetime::new()))
+    }};
 }
 
 pub struct Grant<'id, Id>(PhantomData<Auth<'id, Id>>)
@@ -78,8 +84,8 @@ where
         Self(PhantomData)
     }
 
-    pub fn to<T>(self, data: T) -> Trusted<'id, Id, T> {
-        Trusted::new(self, data)
+    pub fn to<T>(self, value: T) -> Trusted<'id, Id, T> {
+        Trusted::new(self, value)
     }
 }
 
