@@ -1,41 +1,39 @@
 use std::collections::VecDeque;
-use trusted_carrier::{Auth, Grant, Identity};
+use trusted_carrier::{identity, Auth, Grant, Guard, Identity};
 
 fn main() {
-    let mut q = Queue::from(trusted_carrier::auth!());
+    let mut guard = Guard;
+    let mut queue = Queue::new(&mut guard, identity!());
 
     #[allow(clippy::needless_collect)]
-    let tokens: Vec<_> = (0..10).map(|n| q.put(n)).collect();
-    tokens
+    let grants: Vec<_> = (0..10).map(|n| queue.put(n)).collect();
+    grants
         .into_iter()
-        .rev()
-        .for_each(|t| println!("{}", q.pop(t)))
+        .for_each(|g| println!("{}", queue.pop(g)))
 }
 
-pub struct Queue<'id, Id, T>
+pub struct Queue<'guard, Id, T>
 where
     Id: Identity,
 {
     data: VecDeque<T>,
     #[allow(dead_code)]
-    auth: Auth<'id, Id>,
+    auth: Auth<'guard, Id>,
 }
 
-impl<'id, Id: Identity, T> From<Auth<'id, Id>> for Queue<'id, Id, T> {
-    fn from(auth: Auth<'id, Id>) -> Self {
+impl<'guard, Id: Identity, T> Queue<'guard, Id, T> {
+    pub fn new(guard: &'guard mut Guard, id: Id) -> Self {
         Self {
             data: VecDeque::new(),
-            auth,
+            auth: Auth::new(guard, id),
         }
     }
-}
 
-impl<'id, Id: Identity, T> Queue<'id, Id, T> {
-    pub fn pop(&mut self, _: Grant<'id, Id>) -> T {
+    pub fn pop(&mut self, _: Grant<'guard, Id>) -> T {
         self.data.pop_front().unwrap()
     }
 
-    pub fn put(&mut self, value: T) -> Grant<'id, Id> {
+    pub fn put(&mut self, value: T) -> Grant<'guard, Id> {
         self.data.push_back(value);
         self.auth.grant()
     }
