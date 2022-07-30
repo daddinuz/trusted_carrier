@@ -1,49 +1,40 @@
-use trusted_carrier::{Auth, Identity, Trusted};
+use trusted_carrier::{identity, Auth, Guard, Identity, Trusted};
 
 fn main() {
-    let mut arr = Array::new(trusted_carrier::auth!(), [0; 3]);
-    let one = arr.index(1).unwrap();
-    let two = arr.index(2).unwrap();
+    let mut guard = Guard;
+    let mut array = Array::new(&mut guard, identity!(), [0; 3]);
+    let one = array.index(1).unwrap();
+    let two = array.index(2).unwrap();
 
-    let v1 = arr.get_mut(&one);
+    let v1 = array.get_mut(&one);
     *v1 = 1;
 
-    let v2 = arr.get_mut(&two);
+    let v2 = array.get_mut(&two);
     *v2 = 2;
 
-    println!("v1 = {} , v2 = {}", arr.get(&one), arr.get(&two));
+    println!("v1={} , v2={}", array.get(&one), array.get(&two));
 }
 
-pub struct Array<'id, Id, T, const N: usize>
+pub struct Array<'guard, Id, T, const N: usize>
 where
     Id: Identity,
 {
     data: [T; N],
-    auth: Auth<'id, Id>,
+    auth: Auth<'guard, Id>,
 }
 
-impl<'id, Id, T, const N: usize> From<Auth<'id, Id>> for Array<'id, Id, T, N>
+impl<'guard, Id, T, const N: usize> Array<'guard, Id, T, N>
 where
-    T: Default + Copy,
     Id: Identity,
 {
-    fn from(auth: Auth<'id, Id>) -> Self {
+    pub fn new(guard: &'guard mut Guard, id: Id, data: [T; N]) -> Self {
         Self {
-            data: [Default::default(); N],
-            auth,
+            auth: Auth::new(guard, id),
+            data,
         }
     }
-}
 
-impl<'id, Id, T, const N: usize> Array<'id, Id, T, N>
-where
-    Id: Identity,
-{
-    pub fn new(auth: Auth<'id, Id>, data: [T; N]) -> Self {
-        Self { auth, data }
-    }
-
-    pub fn index(&self, index: usize) -> Option<Index<'id, Id>> {
+    pub fn index(&self, index: usize) -> Option<Index<'guard, Id>> {
         if index >= self.data.len() {
             return None;
         }
@@ -51,11 +42,11 @@ where
         Some(self.auth.grant().to(index))
     }
 
-    pub fn get(&self, index: &Index<'id, Id>) -> &T {
+    pub fn get(&self, index: &Index<'guard, Id>) -> &T {
         unsafe { self.data.get_unchecked(index.value()) }
     }
 
-    pub fn get_mut(&mut self, index: &Index<'id, Id>) -> &mut T {
+    pub fn get_mut(&mut self, index: &Index<'guard, Id>) -> &mut T {
         unsafe { self.data.get_unchecked_mut(index.value()) }
     }
 
@@ -68,4 +59,4 @@ where
     }
 }
 
-pub type Index<'id, Id> = Trusted<'id, Id, usize>;
+pub type Index<'guard, Id> = Trusted<'guard, Id, usize>;

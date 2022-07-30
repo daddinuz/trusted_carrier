@@ -4,6 +4,12 @@ mod seal {
     pub trait Sealed {}
 }
 
+pub struct Guard;
+
+impl Drop for Guard {
+    fn drop(&mut self) {}
+}
+
 #[derive(Default)]
 pub struct InvariantLifetime<'a>(PhantomData<Cell<&'a mut ()>>);
 
@@ -27,94 +33,94 @@ impl<T> seal::Sealed for T where T: for<'a> FnOnce(InvariantLifetime<'a>) -> Inv
 
 impl<T> Identity for T where T: for<'a> FnOnce(InvariantLifetime<'a>) -> InvariantLifetime<'a> {}
 
-// To prevent forgery, Auth instances must be neither default nor trivially constructible.
-// An Identity instance must be consumed in order to construct a new Auth.
-pub struct Auth<'id, Id>(PhantomData<Cell<&'id mut Id>>)
-where
-    Id: Identity;
-
-impl<'id, Id> Auth<'id, Id>
-where
-    Id: Identity,
-{
-    pub fn new(_: Id) -> Self {
-        Self(PhantomData)
-    }
-}
-
-impl<'id, Id> Auth<'id, Id>
-where
-    Id: Identity,
-{
-    pub fn grant(&self) -> Grant<'id, Id> {
-        Grant::new(self)
-    }
-}
-
-impl<'id, Id> Drop for Auth<'id, Id>
-where
-    Id: Identity,
-{
-    fn drop(&mut self) {}
-}
-
 #[macro_export]
-macro_rules! auth {
+macro_rules! identity {
     () => {{
         fn cast<Id>(id: Id) -> impl $crate::Identity
         where
-            Id: FnOnce($crate::InvariantLifetime) -> $crate::InvariantLifetime,
+            Id: for<'a> FnOnce($crate::InvariantLifetime<'a>) -> $crate::InvariantLifetime<'a>,
         {
             id
         }
 
-        $crate::Auth::new(cast(|_| $crate::InvariantLifetime::new()))
+        cast(|x| x)
     }};
 }
 
-pub struct Grant<'id, Id>(PhantomData<Auth<'id, Id>>)
+// To prevent forgery, Auth instances must be neither default nor trivially constructible.
+// A Guard and an Identity instance must be consumed in order to construct a new Auth.
+pub struct Auth<'guard, Id>(PhantomData<(InvariantLifetime<'guard>, Id)>)
 where
     Id: Identity;
 
-impl<'id, Id> Grant<'id, Id>
+impl<'guard, Id> Auth<'guard, Id>
 where
     Id: Identity,
 {
-    fn new(_: &Auth<'id, Id>) -> Self {
+    pub fn new(_: &'guard mut Guard, _: Id) -> Self {
         Self(PhantomData)
-    }
-
-    pub fn to<T>(self, value: T) -> Trusted<'id, Id, T> {
-        Trusted::new(self, value)
     }
 }
 
-impl<'id, Id> Drop for Grant<'id, Id>
+impl<'guard, Id> Auth<'guard, Id>
+where
+    Id: Identity,
+{
+    pub fn grant(&self) -> Grant<'guard, Id> {
+        Grant::new(self)
+    }
+}
+
+impl<'guard, Id> Drop for Auth<'guard, Id>
 where
     Id: Identity,
 {
     fn drop(&mut self) {}
 }
 
-pub struct Trusted<'id, Id, T>
+pub struct Grant<'guard, Id>(PhantomData<Auth<'guard, Id>>)
+where
+    Id: Identity;
+
+impl<'guard, Id> Grant<'guard, Id>
+where
+    Id: Identity,
+{
+    fn new(_: &Auth<'guard, Id>) -> Self {
+        Self(PhantomData)
+    }
+
+    pub fn to<T>(self, value: T) -> Trusted<'guard, Id, T> {
+        Trusted::new(self, value)
+    }
+}
+
+impl<'guard, Id> Drop for Grant<'guard, Id>
+where
+    Id: Identity,
+{
+    fn drop(&mut self) {}
+}
+
+pub struct Trusted<'guard, Id, T>
 where
     Id: Identity,
 {
     value: T,
     #[allow(dead_code)]
-    grant: Grant<'id, Id>,
+    grant: Grant<'guard, Id>,
 }
 
-impl<'id, Id, T> Trusted<'id, Id, T>
+impl<'guard, Id, T> Trusted<'guard, Id, T>
 where
     Id: Identity,
 {
-    fn new(grant: Grant<'id, Id>, value: T) -> Self {
+    fn new(grant: Grant<'guard, Id>, value: T) -> Self {
         Self { value, grant }
     }
 }
 
-impl<'id, Id, T> Trusted<'id, Id, T>
+impl<'guard, Id, T> Trusted<'guard, Id, T>
 where
     T: Copy,
     Id: Identity,
@@ -124,7 +130,7 @@ where
     }
 }
 
-impl<'id, Id, T> AsRef<T> for Trusted<'id, Id, T>
+impl<'guard, Id, T> AsRef<T> for Trusted<'guard, Id, T>
 where
     Id: Identity,
 {
@@ -133,7 +139,7 @@ where
     }
 }
 
-impl<'id, Id, T> Deref for Trusted<'id, Id, T>
+impl<'guard, Id, T> Deref for Trusted<'guard, Id, T>
 where
     Id: Identity,
 {
@@ -144,7 +150,7 @@ where
     }
 }
 
-impl<'id, Id, T> Drop for Trusted<'id, Id, T>
+impl<'guard, Id, T> Drop for Trusted<'guard, Id, T>
 where
     Id: Identity,
 {
@@ -160,7 +166,8 @@ mod tests {
     fn zero_sized() {
         assert_eq!(0, mem::size_of::<InvariantLifetime>());
 
-        let auth = auth!();
+        let mut guard = Guard;
+        let auth = Auth::new(&mut guard, identity!());
         assert_eq!(0, mem::size_of_val(&auth));
 
         let grant = auth.grant();
